@@ -454,12 +454,12 @@ def prompt_context_insert(context_labels: str, context : str, max_len : int = 20
   if args.get('tokenizer', None) is not None and len(s) > max_len:
     inputs = args["tokenizer"].encode(s, return_tensors="pt", add_special_tokens=True)
     target_len = len(inputs[0])
-    #NOTE: 250 is a somewhat arbitrary number (if we cutoff at exactly max_len, there will still sometimes be overflow errors for certain LLMs)
-    if target_len > max_len - 250:
+    #NOTE: 100 is a somewhat arbitrary number (if we cutoff at exactly max_len, there will still sometimes be overflow errors for certain LLMs)
+    if target_len > max_len - 100:
       cl_tok = args["tokenizer"].encode(f"Classes: {context_labels} \n Output: \n", return_tensors="pt", add_special_tokens=True)
-      inputs = inputs[:,:max_len-len(cl_tok[0])-250]
+      inputs = inputs[:,:max_len-len(cl_tok[0])-100]
       s = args["tokenizer"].decode(inputs[0]) + f"\n Classes: {context_labels} \n Output: \n"
-      print("Input length reduced: ", len(inputs[0]) + len(cl_tok[0]), "Max length: ", max_len)
+      # print("Input length reduced: ", len(inputs[0]) + len(cl_tok[0]), "Max length: ", max_len)
 
   return s
 
@@ -903,6 +903,15 @@ ef_labels = {
   "dict_map" : {c : c for c in ef_label_list},
 }
 
+viznet_chorus_labels = [
+    "artist", "address", "city", "director", "album", "currency", "product", "isbn", "manufacturer", "birthDate",
+]
+
+viz_chorus_labels = {
+  "name" : "viznet-chorus",
+  "label_set" : viznet_chorus_labels,
+  "dict_map" : {c : c for c in viznet_chorus_labels},
+}
 # VizNet
 viznet_path = os.path.join(current_script_dir, 'metadata', 'VizNet')
 
@@ -961,6 +970,8 @@ def get_lsd(s):
     return t2d_labels
   elif s == "EF":
     return ef_labels
+  elif s == "viznet-chorus":
+    return viz_chorus_labels
   elif s == "viznet-ZS":
     return viznet_zs_context_labels
   print("Label set not found")
