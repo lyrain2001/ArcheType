@@ -78,6 +78,9 @@ def query_correct_model(model, prompt, context_labels, context, session, link, l
         orig_ans = get_internlm_resp(prompt, 1, args)
     elif any(["topp-zs" in model, "flan-t5-xxl-zs" in model, "flan-ul2-zs" in model]):
         orig_ans = get_topp_resp(prompt, 1, args)
+    # TODO
+    elif any(["flan-t5-ft" in model]):
+        orig_ans = get_t5ft_resp(prompt, args)
     else:
         orig_ans = call_llama_model(session, link, prompt, lsd, None, args)
     # print("Original answer: ", orig_ans)
@@ -133,6 +136,24 @@ def get_internlm_resp(prompt, k, args):
     orig_ans = args["tokenizer"].decode(outputs[0], skip_special_tokens=True)
     split_sent = orig_ans.split(end_of_sentence)
     orig_ans = split_sent[-1]
+    return orig_ans
+    
+# TODO
+def get_t5ft_resp(prompt, args):
+    src_tokenized = args["tokenizer"].encode_plus(
+        prompt,
+        max_length=args["MAX_LEN"],
+        pad_to_max_length=True,
+        truncation=True,
+        return_attention_mask=True,
+        return_token_type_ids=False,
+        return_tensors='pt'
+    )
+    src_input_ids = src_tokenized['input_ids'].squeeze()
+    src_attention_mask = src_tokenized['attention_mask'].squeeze()
+    outputs = args["base_model"].generate(input_ids=src_input_ids, 
+                                          attention_mask=src_attention_mask)
+    orig_ans = args["tokenizer"].decode(outputs, skip_special_tokens=True)
     return orig_ans
 
 @retry(Exception, tries=3, delay=3)
@@ -377,6 +398,13 @@ def init_model(model, args):
         args["MAX_LEN"] = 2048
         tokenizer = AutoTokenizer.from_pretrained("facebook/opt-iml-max-30b", use_fast=False, padding_side='left')
         base_model = AutoModelForCausalLM.from_pretrained("facebook/opt-iml-max-30b", device_map="auto", torch_dtype=torch.float16, load_in_8bit=True)
+    # Fine-tuned T5 model for Wikitables
+    elif "flan-t5-ft" in model:
+        state_dict = torch.load('t5_best_model.pt')
+        base_model = T5ForConditionalGeneration.from_pretrained('t5-base')
+        base_model.to('cuda')
+        base_model.load_state_dict(state_dict)
+        tokenizer = T5Tokenizer.from_pretrained(self.MODEL_PATH, model_max_length=512)
     elif model == "doduo":
         print("Loading Doduo model")
         args_doduo = argparse.Namespace
@@ -386,7 +414,7 @@ def init_model(model, args):
         tokenizer = template = pt = MAX_LEN = params = None
     else:
         print("Sorry, I don't recognize model name {}. Please try again.".format(model))
-    if any(["flan-t5-xxl-zs" in model, "topp-zs" in model, "flan-ul2-zs" in model, \
+    if any(["flan-t5-xxl-zs" in model, "topp-zs" in model, "flan-ul2-zs" in model, "flan-t5-ft" in model, \
             "internlm" in model, \
             "-chorus" in model, "-korini" in model, "-noisy" in model, \
             "-short" in model, "-inverted" in model]):
@@ -475,6 +503,9 @@ def fuzzy_label_match(orig_ans, fixed_labels, session, link, prompt, lsd, model,
                     ans_n = ans_n.split(end_of_sentence)[-1]
             elif any(["topp-zs" in model, "flan-t5-xxl-zs" in model, "flan-ul2-zs" in model]):
                 ans_n = get_topp_resp(prompt, k, args)
+            # TODO
+            elif any(["flan-t5-ft" in model]):
+                ans_n = get_t5ft_resp(prompt, args)
             else:
                 print("Running default (local saved checkpoint) llama resampling -- THIS SHOULD NOT HAPPEN if you are running zero-shot models, please check model name")
                 top_p = args['params']['top_p']

@@ -447,6 +447,8 @@ def prompt_context_insert(context_labels: str, context : str, max_len : int = 20
         s = f'INSTRUCTION: Select the option{table_src_str} which best describes the input. \n INPUT: {ct} .\n{ocs} {addl_instr} \n OPTIONS:\n {lb} \n ANSWER: '
   elif model in ["llama", "ArcheType-llama", "ArcheType-llama-oc"]:
     s = f'INSTRUCTION: Select the category{table_src_str} which best matches the input. \n INPUT:{context} \n{ocs} {addl_instr} \n CATEGORY: '
+  elif "flan-t5-ft" in model:
+    s = f'multilabel classification: {context} \n'
   if "internlm" in model or "speechless" in model:
     s = s.replace("[", "").replace("]", "").replace("'", "")
   if args.get('tokenizer', None) is not None and len(s) > max_len:
@@ -933,6 +935,10 @@ def get_viznet_classname_map():
   return viznet_classname_map
 
 viznet_zs_context_labels = {"name" : "viznet_zs", "label_set" : viznet_renamed_class, "dict_map" : {c : c for c in viznet_renamed_class}, "viznet_map" : viznet_classname_map}
+
+
+# Wikitables
+wikitables_path = os.path.join(current_script_dir, 'metadata', 'wikitables')
 
 def get_lsd(s):
   if s == "SOTAB-91":
